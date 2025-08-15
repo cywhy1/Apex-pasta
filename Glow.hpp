@@ -78,9 +78,6 @@ struct Sense {
     }
 
     void setCustomGlow(Player* Target, int enable, int wall, bool isVisible) {
-        if (Target->GlowEnable == 0 && Target->GlowThroughWall == 0 && Target->HighlightID == 0) {
-            return;
-        }
         uint64_t basePointer = Target->BasePointer;
         if (!mem.IsValidPointer(basePointer)) {
             LOG("Invalid BasePointer 0x%llX for player, skipping glow\n", basePointer);
@@ -107,8 +104,6 @@ struct Sense {
             uint64_t glowEnableAddress = basePointer + OFF_GLOW_ENABLE;
             uint64_t PhysAddr;
             if (mem.VirtToPhys(glowEnableAddress, PhysAddr)) {
-                // Random delay 10-60 microseconds
-                std::this_thread::sleep_for(std::chrono::microseconds(10 + (rand() % 50)));
                 mem.Write(PhysAddr, enable);
             }
         }
@@ -117,7 +112,6 @@ struct Sense {
             uint64_t glowThroughWallAddress = basePointer + OFF_GLOW_THROUGH_WALL;
             uint64_t PhysAddr;
             if (mem.VirtToPhys(glowThroughWallAddress, PhysAddr)) {
-                std::this_thread::sleep_for(std::chrono::microseconds(10 + (rand() % 50)));
                 mem.Write(PhysAddr, wall);
             }
         }
@@ -126,7 +120,6 @@ struct Sense {
         unsigned char value = settingIndex;
         uint64_t PhysAddr;
         if (mem.VirtToPhys(highlightIdAddress, PhysAddr)) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10 + (rand() % 50)));
             mem.Write(PhysAddr, value);
         }
 
@@ -150,19 +143,15 @@ struct Sense {
 
         uint64_t glowFixAddress = basePointer + OFF_GLOW_FIX;
         if (mem.VirtToPhys(glowFixAddress, PhysAddr)) {
-            std::this_thread::sleep_for(std::chrono::microseconds(10 + (rand() % 50)));
             mem.Write(PhysAddr, 0);
         }
     }
 
-    Vector2D DummyVector = { 0, 0 };
     void Update() {
-        //randome batch operation
-		int maxBatchSize = 3 + (rand() % 4);
+		int maxBatchSize = 1 + (rand() % 2);
 		int currentBatchCount = 0;
 
-        auto physhandle = mem.CreateScatterHandle(-1); //_PID of -1 is physical (for virtophys use)
-        //Yes i know its fucking scuffed ok?
+        auto physhandle = mem.CreateScatterHandle(-1);
 
         uint64_t highlightSettingsPtr = HighlightSettingsPointer;
         if (mem.IsValidPointer(highlightSettingsPtr)) {
@@ -180,19 +169,17 @@ struct Sense {
                     if (activeGlowMode != oldGlowMode) {
                         uint64_t PhysAddr;
                         if (mem.VirtToPhys(address, PhysAddr)) {
-                            if (rand() % 4 == 0) {
-                                std::this_thread::sleep_for(std::chrono::microseconds(10 + (rand() % 50)));
+                            if (rand() % 3 != 0) {
                                 mem.Write(PhysAddr, activeGlowMode);
                             }else{
-                               //Scatter write request
                                 mem.AddScatterWriteRequest(physhandle, PhysAddr, &activeGlowMode, sizeof(activeGlowMode));
 								currentBatchCount++;
                                 if (currentBatchCount >= maxBatchSize) {
                                     mem.ExecuteWriteScatter(physhandle);
 									mem.CloseScatterHandle(physhandle);
-									physhandle = mem.CreateScatterHandle(-1); // Create a new handle for the next batch
-									currentBatchCount = 0; // Reset 
-									maxBatchSize = 3 + (rand() % 4); // Randomize the next batch size
+									physhandle = mem.CreateScatterHandle(-1);
+									currentBatchCount = 0;
+									maxBatchSize = 1 + (rand() % 2);
                                 }
                             }
                             
@@ -219,8 +206,7 @@ struct Sense {
                         if (blankGlowMode != oldGlowMode) {
                             uint64_t PhysAddr;
                             if (mem.VirtToPhys(address, PhysAddr)) {
-                                if (rand() % 4 == 0) {
-                                    std::this_thread::sleep_for(std::chrono::microseconds(10 + (rand() % 50)));
+                                if (rand() % 3 != 0) {
                                     mem.Write(PhysAddr, blankGlowMode);
                                 }
                                 else {
@@ -232,7 +218,7 @@ struct Sense {
                                         mem.CloseScatterHandle(physhandle);
                                         physhandle = mem.CreateScatterHandle(-1);
                                         currentBatchCount = 0;
-                                        maxBatchSize = 3 + (rand() % 4);
+                                        maxBatchSize = 1 + (rand() % 2);
                                     }
                                 }
                             }
@@ -250,8 +236,7 @@ struct Sense {
                     if (BlankGlow != oldGlowMode) {
                         uint64_t PhysAddr;
                         if (mem.VirtToPhys(address, PhysAddr)) {
-                            if (rand() % 4 == 0) {
-                                std::this_thread::sleep_for(std::chrono::microseconds(10 + (rand() % 50)));
+                            if (rand() % 3 != 0) {
                                 mem.Write(PhysAddr, BlankGlow);
                             }
                             else {
@@ -261,9 +246,9 @@ struct Sense {
                                 if (currentBatchCount >= maxBatchSize) {
                                     mem.ExecuteWriteScatter(physhandle);
                                     mem.CloseScatterHandle(physhandle);
-                                    physhandle = mem.CreateScatterHandle(-1); // Create a new handle for the next batch
-                                    currentBatchCount = 0; // Reset 
-                                    maxBatchSize = 3 + (rand() % 4); // Randomize the next batch size
+                                    physhandle = mem.CreateScatterHandle(-1);
+                                    currentBatchCount = 0;
+                                    maxBatchSize = 1 + (rand() % 2);
                                 }
                             }
                         }
@@ -272,7 +257,7 @@ struct Sense {
             }
         }
 
-        // Execute any remaining operations in the final batch
+
         if (currentBatchCount > 0) {
             mem.ExecuteWriteScatter(physhandle);
         }
@@ -284,10 +269,8 @@ struct Sense {
             if (Target->IsDummy()) continue;
             if (Target->IsLocal) continue;
             if (!Target->IsHostile) continue;
-
-            if (GameCamera->WorldToScreen(Target->LocalOrigin.ModifyZ(30), DummyVector)) {
-                setCustomGlow(Target, 1, 1, Target->IsVisible);
-            }
+            
+            setCustomGlow(Target, 1, 1, Target->IsVisible);
         }
     }
 };

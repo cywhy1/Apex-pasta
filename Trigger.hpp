@@ -53,12 +53,7 @@ public:
 private:
     Player* FindTargetAtCrosshair();
     bool IsValidTarget(Player* player);
-    float CalculateAngleFromCrosshair(Player* player);
     bool ShouldTrigger(Player* target);
     void ExecuteTrigger();
     bool SendInAttackClick();
-    bool HasLineOfSight(Player* target);
-    bool IsHumanLikeTiming();
-    void UpdateAntiDetection();
-    bool PassesAntiDetectionChecks();
 };

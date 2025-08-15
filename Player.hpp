@@ -43,12 +43,8 @@ struct Player {
     int LastTimeAimedAtPrevious;
     bool IsAimedAt;
 
-    uint64_t LastVisibleCheckTime = 0;
     int LastVisibleTime;
     int LastTimeVisiblePrevious = 0;
-    bool LastVisibleState = false;
-    int VisCheckCount = 0;
-    const int VisCheckThreshold = 10;
     bool IsVisible;
 
     bool IsLocal;
@@ -68,41 +64,7 @@ struct Player {
         this->Map = Map;
     }
 
-    uint64_t GetMilliseconds()
-    {
-        LARGE_INTEGER PerformanceFrequency;
-        QueryPerformanceFrequency(&PerformanceFrequency);
-        LARGE_INTEGER CurrentPerformanceCount;
-        QueryPerformanceCounter(&CurrentPerformanceCount);
-        return (CurrentPerformanceCount.QuadPart/*microseconds*/ * 1000/*milliseconds*/) / PerformanceFrequency.QuadPart/*microseconds*/;
-    }
 
-
-    bool VisCheck() {
-        uint64_t VisibleCheckTime = GetMilliseconds();
-
-        if (VisibleCheckTime >= LastVisibleCheckTime + 10) {
-            LastVisibleState = false;
-            if (LastVisibleTime > LastTimeVisiblePrevious) {
-                LastVisibleState = true;
-                VisCheckCount = 0;
-            }
-            else if (LastVisibleTime < 0 && LastTimeVisiblePrevious > 0) {
-                LastVisibleState = true;
-                VisCheckCount = 0;
-            }
-            else if (LastVisibleTime == LastTimeVisiblePrevious) {
-                VisCheckCount++;
-                if (VisCheckCount < VisCheckThreshold) {
-                    LastVisibleState = true;
-                }
-            }
-            LastTimeVisiblePrevious = LastVisibleTime;
-            LastVisibleCheckTime = VisibleCheckTime;
-        }
-
-        return LastVisibleState;
-    }
 
     void ValidCheck() {
         if (Valid) {
@@ -120,7 +82,12 @@ struct Player {
         IsAimedAt = LastTimeAimedAtPrevious < LastTimeAimedAt;
         LastTimeAimedAtPrevious = LastTimeAimedAt;
 
-        IsVisible = IsDummy() || IsAimedAt || VisCheck();
+        if (IsDummy()) {
+            IsVisible = true;
+        } else {
+            IsVisible = IsAimedAt || (LastVisibleTime > LastTimeVisiblePrevious);
+            LastTimeVisiblePrevious = LastVisibleTime;
+        }
 
         if (Myself->IsValid()) {
             IsLocal = Myself->BasePointer == BasePointer;

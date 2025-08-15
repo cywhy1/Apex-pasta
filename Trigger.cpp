@@ -15,8 +15,6 @@ TriggerBot::TriggerBot(LocalPlayer* lp, std::vector<Player*>* p, Camera* cam, c_
 void TriggerBot::Update() {
     if (!enableTriggerBot) return;
     
-    UpdateAntiDetection();
-    
     if (!inputManager->IsKeyDown(triggerKey)) return;
     
     if (!localPlayer || !localPlayer->IsCombatReady()) return;
@@ -65,41 +63,34 @@ bool TriggerBot::IsValidTarget(Player* player) {
     if (player->IsDummy() && Map->IsFiringRange) {
         return player->IsVisible;
     }
-    
     if (!player->IsHostile || !player->IsVisible) return false;
     
     return true;
 }
 
-float TriggerBot::CalculateAngleFromCrosshair(Player* player) {
-    Vector3D cameraPos = localPlayer->CameraPosition;
-    QAngle viewAngles = QAngle(localPlayer->ViewAngles.x, localPlayer->ViewAngles.y + yawBiasDegrees);
 
-    int testBones[] = { (int)HitboxType::Head, 3, 4, 5, 6, 7, 8 };
-    float best = 9999.0f;
-    for (int i = 0; i < (int)(sizeof(testBones) / sizeof(testBones[0])); ++i) {
-        Vector3D pos = player->GetBonePosition(static_cast<HitboxType>(testBones[i]));
-        if (pos.IsValid()) {
-            QAngle targetAngle = Resolver::CalculateAngle(cameraPos, pos);
-            float d = viewAngles.distanceTo(targetAngle);
-            if (d < best) best = d;
-        }
-    }
-    return best;
-}
 
 bool TriggerBot::ShouldTrigger(Player* target) {
     if (!target) return false;
     if (!inputManager->IsReactionTimeValid()) return false;
     
-    if (!target->IsAimedAt) {
-        if (debugMode) printf("[DEBUG] Not aimed at target\n");
-        return false;
-    }
-    
     if (target->DistanceToLocalPlayer > Conversion::ToGameUnits(maxTriggerDistance)) {
         if (debugMode) printf("[DEBUG] Target too far: %.1f\n", target->DistanceToLocalPlayer);
         return false;
+    }
+    
+
+    if (!target->IsAimedAt) {
+        if (debugMode) {
+            printf("[DEBUG] Target not aimed at - IsAimedAt: false\n");
+        }
+        return false;
+    }
+    
+    if (debugMode) {
+        printf("[DEBUG] Target validated - Type: %s, IsAimedAt: %s\n", 
+               target->IsDummy() ? "Dummy" : "Player", 
+               target->IsAimedAt ? "true" : "false");
     }
     
     if (debugMode) printf("[DEBUG] Triggering on target!\n");
@@ -114,10 +105,7 @@ void TriggerBot::ExecuteTrigger() {
     }
 }
 
-bool TriggerBot::IsHumanLikeTiming() { return true; }
 
-void TriggerBot::UpdateAntiDetection() {
-}
 
 bool TriggerBot::SendInAttackClick() {
     auto now = std::chrono::steady_clock::now();
@@ -154,22 +142,4 @@ bool TriggerBot::SendInAttackClick() {
     return true;
 }
 
-bool TriggerBot::HasLineOfSight(Player* target) {
-    if (!target || !localPlayer) return false;
-    
-    Vector3D targetPos = target->LocalOrigin;
-    
-    for (auto& player : *players) {
-        if (!player || player == target) continue;
-        if (!player->IsValid() || !player->IsHostile) continue;
-        
-        float distBetweenPlayers = player->LocalOrigin.Distance(targetPos);
-        
-        if (distBetweenPlayers < 30.0f) {
-            if (debugMode) printf("[DEBUG] Players too close together, distance: %.1f\n", distBetweenPlayers);
-            return false;
-        }
-    }
-    
-    return true;
-}
+
